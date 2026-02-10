@@ -8,12 +8,22 @@ TOKEN = "DEWA_SIG_2026_XYZ"
 # =========================================================
 
 def capture(name):
-    # Mengambil screenshot layar HP pemain sebagai bukti visual
-    path = f"/sdcard/DWA_{int(time.time())}.png"
+    # Buat nama file yang rapi
+    filename = f"evidence_{int(time.time())}.png"
+    
+    # Lokasi penyimpanan sementara di dalam folder Termux saja (lebih aman)
+    # Tidak perlu /sdcard/ agar tidak bentrok dengan izin Android yang ketat
     try:
-        subprocess.run(["screencap", "-p", path])
-        return path
-    except:
+        # Menjalankan perintah screenshot
+        subprocess.run(["screencap", "-p", filename])
+        
+        # Cek apakah file benar-benar tercipta
+        if os.path.exists(filename):
+            return filename
+        else:
+            return None
+    except Exception as e:
+        print(f" Gagal mengambil gambar: {e}")
         return None
 
 def check_illegal_files():
