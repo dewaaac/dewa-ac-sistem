@@ -3,7 +3,7 @@ import os, hashlib, requests, subprocess, time, platform
 # =========================================================
 # KONFIGURASI DOMAIN RESMI DEWA AC
 # =========================================================
-URL = "https://god-eye.my.id/index.php"
+URL = "http://god-eye.my.id/index.php"
 TOKEN = "DEWA_SIG_2026_XYZ"
 # =========================================================
 
