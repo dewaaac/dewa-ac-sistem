@@ -8,22 +8,20 @@ TOKEN = "DEWA_SIG_2026_XYZ"
 # =========================================================
 
 def capture(name):
-    # Buat nama file yang rapi
     filename = f"evidence_{int(time.time())}.png"
-    
-    # Lokasi penyimpanan sementara di dalam folder Termux saja (lebih aman)
-    # Tidak perlu /sdcard/ agar tidak bentrok dengan izin Android yang ketat
     try:
-        # Menjalankan perintah screenshot
-        subprocess.run(["screencap", "-p", filename])
+        # Mencoba ambil screenshot dengan termux-api
+        subprocess.run(["termux-screenshot", filename])
         
-        # Cek apakah file benar-benar tercipta
+        # Jika termux-api gagal, coba screencap biasa
+        if not os.path.exists(filename):
+            subprocess.run(["screencap", "-p", filename])
+            
         if os.path.exists(filename):
             return filename
         else:
             return None
-    except Exception as e:
-        print(f" Gagal mengambil gambar: {e}")
+    except:
         return None
 
 def check_illegal_files():
