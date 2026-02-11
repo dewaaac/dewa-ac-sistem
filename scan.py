@@ -108,7 +108,7 @@ def main():
             if file_bukti: os.remove(file_bukti)
 
             # Eksekusi Hukuman
-            if score >= 90:
+            if score >= 101:
                 print(f"\033[91m[!] CHEAT DETECTED! KICKING...\033[0m")
                 subprocess.run(["am", "force-stop", "com.dts.freefireth"], capture_output=True)
                 os._exit(0)
