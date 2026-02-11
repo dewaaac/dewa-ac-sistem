@@ -1,65 +1,74 @@
-import os, time, subprocess, requests, platform
+import os, time, subprocess, requests, platform, psutil, hashlib, json
 
-# KONFIGURASI SINKRONISASI
-URL_HOSTING = "http://god-eye.my.id/index.php" # Pastikan URL ini benar
+
+URL_HOSTING = "https://website-kamu.com/index.php"
 AUTH_TOKEN = "DEWA_SIG_2026_XYZ"
 
-def capture(name):
-    # Nama file unik
-    filename = f"evidence_{int(time.time())}.png"
-    try:
-        # Coba cara 1: Termux-API (Harus install pkg install termux-api)
-        subprocess.run(["termux-screenshot", filename], capture_output=True)
-        
-        # C_oba cara 2: Jika cara 1 gagal
-        if not os.path.exists(filename):
-            subprocess.run(["screencap", "-p", filename])
-            
-        if os.path.exists(filename):
-            return filename
-    except:
-        return None
-    return None
+FORBIDDEN_KEYWORDS = ["antena", "headshot", "aimlock", "regedit", "modmenu", "bypass", "injector", "ffh4x", "ruok", "cheat", "hack"]
+BANNED_APPS = ["game guardian", "mt manager", "lucky patcher", "lulu box", "tiktok lite", "facebook lite"]
+
+def get_hwid():
+    raw = f"{platform.machine()}{platform.processor()}{platform.node()}"
+    return hashlib.md5(raw.encode()).hexdigest()[:8].upper()
+
+def check_history():
+    traces = []
+    # Cek folder download & WA
+    paths = ["/sdcard/Download", "/sdcard/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents"]
+    for p in paths:
+        if os.path.exists(p):
+            for f in os.listdir(p):
+                if any(k in f.lower() for k in FORBIDDEN_KEYWORDS):
+                    traces.append(f"TRACE:{f}")
+    return traces
+
+def scan():
+    score = 10
+    det = []
+    # 1. Root Check
+    if os.path.exists("/data/adb/magisk") or os.path.exists("/system/bin/su"):
+        return 100, ["DEVICE_ROOTED"]
+    # 2. History Check
+    tr = check_history()
+    if tr: score += 50; det.extend(tr)
+    # 3. Process Check
+    for p in psutil.process_iter(['name']):
+        try:
+            if any(a in p.info['name'].lower() for a in BANNED_APPS):
+                score += 45; det.append(p.info['name'].upper())
+        except: continue
+    return min(score, 100), list(set(det))
 
 def main():
-    print(" === DEWA ANTI-CHEAT SCANNER v2.6 === ")
-    nickname = input(" Masukkan Nickname: ")
-    
-    # Simulasi Scan (Ganti dengan logika scan kamu)
-    print(" Sedang memindai file...")
-    time.sleep(2)
-    score = 80 # Contoh skor deteksi
-    
-    # Ambil Bukti jika skor tinggi
-    file_bukti = None
-    if score > 30:
-        print(" [!] Aktivitas mencurigakan! Mengambil bukti...")
-        file_bukti = capture(nickname)
-    
-    # Kirim Data ke Website
-    data = {
-        "auth_token": AUTH_TOKEN,
-        "nickname": nickname,
-        "score": score,
-        "device": platform.machine()
-    }
-    
-    files = {}
-    if file_bukti and os.path.exists(file_bukti):
-        files = {"evidence": open(file_bukti, "rb")}
-        
-    try:
-        response = requests.post(URL_HOSTING, data=data, files=files)
-        if response.text == "OK":
-            print(" [+] Data & Bukti Berhasil Dikirim!")
-        else:
-            print(f" [-] Server merespon: {response.text}")
-    except Exception as e:
-        print(f" [!] Gagal terhubung ke server: {e}")
+    os.system('clear')
+    print("\033[92m[+] DEWA ANTI-CHEAT SYSTEM ACTIVE\033[0m")
+    nick = input("Input Nickname: ")
+    hwid = get_hwid()
 
-    # Hapus file sampah di HP setelah dikirim
-    if file_bukti and os.path.exists(file_bukti):
-        os.remove(file_bukti)
+    while True:
+        score, findings = scan()
+        details = ", ".join(findings) if findings else "CLEAN"
+        
+        # Ambil Lokasi (Termux-API harus terpasang)
+        loc = "UNKNOWN"
+        try:
+            res = subprocess.run(["termux-location"], capture_output=True, text=True, timeout=5)
+            ld = json.loads(res.stdout); loc = f"{ld['latitude']},{ld['longitude']}"
+        except: pass
+
+        # Kirim ke Dashboard
+        try:
+            payload = {"auth_token": AUTH_TOKEN, "nickname": nick, "score": score, "details": details, "device": hwid, "location": loc}
+            requests.post(URL_HOSTING, data=payload, timeout=10)
+            
+            if score >= 90:
+                print(f"\033[91m[!] CHEAT DETECTED: {details}. KICKING...\033[0m")
+                subprocess.run(["am", "force-stop", "com.dts.freefireth"], capture_output=True)
+                os._exit(0)
+        except Exception as e:
+            print("Sync Error...")
+            
+        time.sleep(10)
 
 if __name__ == "__main__":
     main()
