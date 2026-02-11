@@ -1,67 +1,49 @@
-import os, time, subprocess, requests, platform, psutil, hashlib, json
+import os, time, subprocess, requests, platform, psutil, hashlib, json, threading
 
-# --- KONFIGURASI SINKRONISASI ---
-# Gunakan http karena belum ada SSL
+# --- KONFIGURASI ---
 URL_HOSTING = "http://god-eye.my.id/index.php" 
 AUTH_TOKEN = "DEWA_SIG_2026_XYZ"
 
 FORBIDDEN_KEYWORDS = ["antena", "headshot", "aimlock", "regedit", "modmenu", "bypass", "injector", "ffh4x", "ruok", "cheat", "hack"]
-BANNED_APPS = ["game guardian", "mt manager", "lucky patcher", "lulu box", "tiktok lite", "facebook lite"]
+BANNED_APPS = ["game guardian", "mt manager", "lucky patcher", "lulu box"]
 
-def capture():
-    filename = f"evid_{int(time.time())}.png"
-    try:
-        # Cara 1: Termux-API
-        subprocess.run(["termux-screenshot", filename], capture_output=True)
-        if not os.path.exists(filename):
-            # Cara 2: Generic Android
-            subprocess.run(["screencap", "-p", filename], capture_output=True)
-        
-        if os.path.exists(filename):
-            return filename
-    except:
-        return None
-    return None
+def show_visual_warning(msg):
+    # Memunculkan pesan melayang (Toast) di layar HP
+    subprocess.run(["termux-toast", "-c", "red", "-g", "top", msg])
+
+def play_audio_warning():
+    # Download alarm jika belum ada
+    if not os.path.exists("alarm.mp3"):
+        url = "https://www.soundjay.com/buttons/beep-01a.mp3"
+        try:
+            r = requests.get(url); open("alarm.mp3", "wb").write(r.content)
+        except: pass
+    # Putar suara
+    subprocess.run(["play-audio", "alarm.mp3"], capture_output=True)
 
 def get_hwid():
     raw = f"{platform.machine()}{platform.processor()}{platform.node()}"
     return hashlib.md5(raw.encode()).hexdigest()[:8].upper()
 
-def check_history():
-    traces = []
-    paths = ["/sdcard/Download", "/sdcard/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents"]
-    for p in paths:
-        if os.path.exists(p):
-            try:
-                for f in os.listdir(p):
-                    if any(k in f.lower() for k in FORBIDDEN_KEYWORDS):
-                        traces.append(f"TRACE:{f}")
-            except: continue
-    return traces
-
 def scan():
     score = 10
     det = []
-    # 1. Root Check
     if os.path.exists("/data/adb/magisk") or os.path.exists("/system/bin/su"):
         return 100, ["DEVICE_ROOTED"]
-    # 2. History Check
-    tr = check_history()
-    if tr: 
-        score += 50
-        det.extend(tr)
-    # 3. Process Check
-    for p in psutil.process_iter(['name']):
-        try:
-            if any(a in p.info['name'].lower() for a in BANNED_APPS):
-                score += 45
-                det.append(p.info['name'].upper())
-        except: continue
+    
+    # Cek Folder Download
+    path = "/sdcard/Download"
+    if os.path.exists(path):
+        for f in os.listdir(path):
+            if any(k in f.lower() for k in FORBIDDEN_KEYWORDS):
+                det.append(f"FILE:{f}")
+                score += 50
+                
     return min(score, 100), list(set(det))
 
 def main():
     os.system('clear')
-    print("\033[92m[+] DEWA ANTI-CHEAT SYSTEM ACTIVE\033[0m")
+    print("\033[92m[+] GOD-EYE SYSTEM ACTIVE\033[0m")
     nick = input("Input Nickname: ")
     hwid = get_hwid()
 
@@ -69,52 +51,24 @@ def main():
         score, findings = scan()
         details = ", ".join(findings) if findings else "CLEAN"
         
-        # Ambil Lokasi
-        loc = "UNKNOWN"
-        try:
-            res = subprocess.run(["termux-location"], capture_output=True, text=True, timeout=5)
-            ld = json.loads(res.stdout)
-            loc = f"{ld['latitude']},{ld['longitude']}"
-        except: pass
-
-        # Ambil Bukti Screenshot jika terdeteksi
-        file_bukti = None
-        files = {}
-        if score > 50:
-            file_bukti = capture()
-            if file_bukti:
-                files = {"ss": open(file_bukti, "rb")}
+        # --- EFEK VISUAL & SUARA JIKA TERDETEKSI ---
+        if score >= 90:
+            msg = f"PERINGATAN: {nick} TERDETEKSI CHEAT! DATA DIKIRIM KE PANITIA!"
+            # Jalankan di background agar tidak macet
+            threading.Thread(target=show_visual_warning, args=(msg,)).start()
+            threading.Thread(target=play_audio_warning).start()
 
         # Kirim ke Dashboard
         try:
-            payload = {
-                "auth_token": AUTH_TOKEN, 
-                "nickname": nick, 
-                "score": score, 
-                "details": details, 
-                "device": hwid, 
-                "location": loc
-            }
-            # verify=False digunakan karena tidak ada SSL
-            response = requests.post(URL_HOSTING, data=payload, files=files, timeout=15, verify=False)
+            payload = {"auth_token": AUTH_TOKEN, "nickname": nick, "score": score, "details": details, "device": hwid}
+            requests.post(URL_HOSTING, data=payload, timeout=10, verify=False)
+            print(f"[*] Status: Synced | Score: {score}%")
             
-            if response.status_code == 200:
-                print(f"\033[94m[*] Synced | Score: {score}% | Status: OK\033[0m")
-            else:
-                print(f"\033[33m[!] Server Error: {response.status_code}\033[0m")
-            
-            # Tutup file agar bisa dihapus
-            if files: files["ss"].close()
-            if file_bukti: os.remove(file_bukti)
-
-            # Eksekusi Hukuman
-            if score >= 101:
-                print(f"\033[91m[!] CHEAT DETECTED! KICKING...\033[0m")
+            if score >= 101: # Ubah ke 90 jika ingin langsung kick pemain asli
                 subprocess.run(["am", "force-stop", "com.dts.freefireth"], capture_output=True)
                 os._exit(0)
-
-        except Exception as e:
-            print(f"\033[91m[!] Sync Error: {e}\033[0m")
+        except:
+            print("Sync Error...")
             
         time.sleep(10)
 
