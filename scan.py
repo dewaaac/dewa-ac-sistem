@@ -10,17 +10,20 @@ def capture_all_evidence():
     evidences = {}
     paths_to_clean = []
     
-    # 1. Screenshot (Gunakan try agar tidak crash jika tool tidak ada)
+   # 1. Screenshot (Gunakan Jalur Absolut /system/bin/ atau /usr/bin/)
     ss_name = f"ss_{int(time.time())}.png"
     try:
-        subprocess.run(["termux-screenshot", ss_name], capture_output=True, timeout=5)
+        # Mencoba memanggil dengan jalur lengkap
+        cmd = "/data/data/com.termux/files/usr/bin/termux-screenshot"
+        subprocess.run([cmd, ss_name], capture_output=True, timeout=10)
+        
         if os.path.exists(ss_name):
             evidences["ss"] = open(ss_name, "rb")
             paths_to_clean.append(ss_name)
-    except FileNotFoundError:
-        print("[!] Tool termux-screenshot tidak ditemukan.")
+        else:
+            print("[!] Screenshot gagal dibuat oleh sistem.")
     except Exception as e:
-        print(f"[!] Gagal screenshot: {e}")
+        print(f"[!] Gagal total screenshot: {e}")
 
     # 2. Kamera Belakang
     cam_back = f"back_{int(time.time())}.jpg"
